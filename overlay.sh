@@ -9,11 +9,11 @@ export TERM PATH
 case "${1}" in
 
     client)
-        OVERLAY_DIR="overlay_client"
+        OVERLAY_DIR="overlay__client"
     ;;
 
     server)
-        OVERLAY_DIR="overlay_server"
+        OVERLAY_DIR="overlay__server"
     ;;
 
     *)
