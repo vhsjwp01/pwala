@@ -14,6 +14,9 @@ case "${1}" in
 
     server)
         OVERLAY_DIR="overlay__server"
+        make_my_cnf="yes"
+        config_xinetd="yes"
+        start_xinetd="yes"
     ;;
 
     *)
@@ -29,9 +32,8 @@ case "${1}" in
 esac
 
 # VARIABLE REPLACEMENT
-echo
-
 if [ "${1}" = "client" ]; then
+    echo
 
     while [ -z "${enable_mac_allow_db}" ]; do
         read -p "Do you have a MAC allow list database (y/n)?: " enable_mac_allow_db
@@ -76,6 +78,19 @@ if [ "${1}" = "client" ]; then
     
     done
 
+    # Prep hostapd for MAC management
+    for suffix in allow deny ; do
+    
+        if [ ! -e "/etc/hostapd/mac_addresses.${suffix}" ]; then
+            touch "/etc/hostapd/mac_addresses.${suffix}"
+        fi
+    
+    done
+
+    for prefix in accept deny ; do
+        find /etc/hostapd -maxdepth 1 -type f -iname "hostapd-*.conf" -exec sed -i -e "|s^#\(${prefix}_mac_file=.*\)|\1|g" '{}' \;
+    done
+
 fi
 
 # Find all files
@@ -112,6 +127,50 @@ if [ -d "${this_dir}/${OVERLAY_DIR}" ]; then
 
     done
 
+fi
+
+# Setup /root/.my.cnf
+if [ "${make_my_cnf}" = "yes" ]; then
+    rm -f /root/.my.cnf                   > /dev/null 2>&1
+
+    echo
+    read -p "Please enter the MySQL/MariaDB root password: " my_root_db_passwd
+
+    if [ -n "${my_root_db_passwd}" ]; then
+        echo "[client]"                       > /root/.my.cnf
+        echo "user=root"                     >> /root/.my.cnf
+        echo "password=${my_root_db_passwd}" >> /root/.my.cnf
+    fi
+
+    if [ -s "/root/.my.cnf" ]; then
+        chmod 640 /root/.my.cnf > /dev/null 2>&1
+    fi
+
+    systemctl enable mariadb
+    systemctl start mariadb
+fi
+
+# Define new local xinetd service definition
+if [ "${config_xinetd}" = "yes" ]; then
+    egrep "^# Local services" /etc/services > /dev/null 2>&1
+
+    if [ ${?} -ne 0 ]; then
+        echo                    >> /etc/services
+        echo "# Local services" >> /etc/services
+    fi
+
+    egrep "^ip_allowlist    60000/tcp" /etc/services > /dev/null 2>&1
+
+    if [ ${?} -ne 0 ]; then
+        echo "ip_allowlist    60000/tcp" >> /etc/services
+    fi
+
+fi
+
+# Activate new local xinetd service definition
+if [ "${start_xinetd}" = "yes" ]; then
+    systemctl enable xinetd
+    systemctl start xinetd
 fi
 
 

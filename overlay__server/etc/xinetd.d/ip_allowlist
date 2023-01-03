@@ -1,0 +1,11 @@
+service ip_allowlist
+{
+    port            = 60000
+    socket_type     = stream
+    wait            = no
+    user            = root
+    server          = /usr/local/sbin/ip_allowlist
+    log_on_success += HOST DURATION
+    log_on_failure += HOST
+    disable         = no
+}

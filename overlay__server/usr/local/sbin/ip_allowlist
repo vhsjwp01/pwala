@@ -1,0 +1,46 @@
+#!/bin/bash
+#set -x
+
+PATH="/bin:/usr/bin:/usr/local/bin:/sbin:/usr/sbin:/usr/local/sbin"
+TERM="vt100"
+export TERM PATH
+
+db_user=""
+db_password=""
+db_host=""
+db=""
+
+sql_query=""
+
+read encoded_connection_string
+read encoded_sql_query
+
+if [ ! -z "${encoded_connection_string}" ]; then
+    decoded_connection_string=$(echo "${encoded_connection_string}" | base64 -d 2> /dev/null)
+
+    if [ ! -z "${decoded_connection_string}" ]; then
+        db_user_info=$(echo "${decoded_connection_string}" | awk -F'@' '{print $1}')
+        db_resource_info=$(echo "${decoded_connection_string}" | awk -F'@' '{print $NF}')
+
+        db_user=$(echo "${db_user_info}" | awk -F':' '{print $1}')
+        db_password=$(echo "${db_user_info}" | awk -F':' '{print $NF}')
+
+        db_host=$(echo "${db_resource_info}" | awk -F'/' '{print $1}')
+        db=$(echo "${db_resource_info}" | awk -F'/' '{print $NF}')
+    fi
+
+fi
+
+if [ ! -z "${encoded_sql_query}" ]; then
+    sql_query=$(echo "${encoded_sql_query}" | base64 -d 2> /dev/null)
+fi
+
+# TODO: handle null rows
+if [ ! -z "${db_user}" -a ! -z "${db_password}" -a ! -z "${db_host}" -a ! -z "${db}" -a ! -z "${sql_query}" ]; then
+    echo "use ${db} ; ${sql_query} ;" | mysql -h ${db_host} -u ${db_user} -p${db_password} | awk '{print $NF}' | egrep -v "^MACAddress$" | tr '[a-z]' '[A-Z]' | sort
+fi
+
+
+
+# echo "select * from Devices;" | mysql -h 0.0.0.0 -u wifi_user -p wifi_ip_whitelist | awk '{print $NF}' | egrep -v "^MACAddress$" | tr '[a-z]' '[A-Z]' | sort > /tmp/foo
+# analyze_api_dev:I-AM-CAPTAIN-MONKEY@mul-db-d01-use1b.c.vst-main-nonprod.internal/analyze_api_dev
